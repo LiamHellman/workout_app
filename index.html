@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Liam Fitness Streaks</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --accent: #22c55e;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#020617; color:var(--text); min-height:100vh; display:flex; }
+    .auth,.app { width:100%; display:none; }
+    .auth.active,.app.active { display:flex; }
+    .auth { align-items:center; justify-content:center; padding:2rem; }
+    .auth-card {
+      background: rgba(15,23,42,.6);
+      border: 1px solid rgba(148,163,184,.08);
+      padding: 2rem;
+      border-radius: 1.25rem;
+      width: min(420px, 100%);
+    }
+    input,select {
+      width:100%; padding:.6rem .7rem; border-radius:.7rem;
+      border:1px solid rgba(148,163,184,.2);
+      background:rgba(15,23,42,.25); color:var(--text); margin-bottom:1rem;
+    }
+    button { background:var(--accent); border:none; padding:.6rem 1rem; border-radius:999px; font-weight:600; cursor:pointer; }
+    button.secondary { background:rgba(148,163,184,.12); color:var(--text); }
+    .app { gap:1rem; }
+    .sidebar { width:250px; background:rgba(2,6,23,.4); padding:1rem; display:flex; flex-direction:column; gap:1rem; }
+    .user-badge { background:rgba(15,23,42,.5); padding:1rem; border-radius:1rem; }
+    .nav-btn { background:transparent; border:none; text-align:left; padding:.5rem; border-radius:.6rem; color:var(--text); cursor:pointer; }
+    .nav-btn.active { background:rgba(34,197,94,.12); }
+    .main { flex:1; padding:1rem 1.5rem 2rem; display:flex; flex-direction:column; gap:1rem; overflow-y:auto; }
+    .card { background:rgba(15,23,42,.4); border:1px solid rgba(148,163,184,.05); border-radius:1rem; padding:1rem; }
+    .top-row { display:flex; gap:1rem; flex-wrap:wrap; }
+    .streak-card { flex:1; min-width:230px; background:radial-gradient(circle at top, rgba(34,197,94,.25), rgba(15,23,42,.2)); }
+    .streak-number { font-size:3rem; font-weight:700; }
+    .calendar-grid { display:grid; grid-template-columns:repeat(7, minmax(36px,1fr)); gap:.3rem; margin-top:.6rem; }
+    .cal-day { background:rgba(2,6,23,.25); border-radius:.5rem; min-height:54px; padding:.25rem; font-size:.6rem; }
+    .cal-day.today { border:1px solid rgba(34,197,94,.6); }
+    .workout-icon { display:inline-flex; width:18px; height:18px; border-radius:.4rem; align-items:center; justify-content:center; background:rgba(34,197,94,.15); font-size:.6rem; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { padding:.4rem 0; border-bottom:1px solid rgba(148,163,184,.05); font-size:.8rem; }
+    @media(max-width:900px){ .sidebar{display:none;} .app{flex-direction:column;} .top-row{flex-direction:column;} }
+  </style>
+</head>
+<body>
+<div class="auth active" id="authScreen">
+  <div class="auth-card">
+    <h2>Workout Streaks 👊</h2>
+    <p style="color:var(--muted);">Login or create an account.</p>
+    <input id="username" placeholder="username" />
+    <input id="password" type="password" placeholder="password (not secure)" />
+    <button id="loginBtn" style="width:100%; margin-bottom:.5rem;">Login / Create</button>
+    <p id="authMsg" style="color:var(--muted); font-size:.7rem;"></p>
+  </div>
+</div>
+
+<div class="app" id="appScreen">
+  <aside class="sidebar">
+    <div class="user-badge">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div id="badgeName" style="font-weight:600;">User</div>
+          <div style="font-size:.65rem; color:var(--muted);">Online</div>
+        </div>
+        <button class="secondary" id="logoutBtn" style="font-size:.65rem; padding:.25rem .6rem;">Logout</button>
+      </div>
+    </div>
+    <div>
+      <button class="nav-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="nav-btn" data-tab="leaderboard">Leaderboard</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div id="dashboardTab">
+      <div class="top-row">
+        <div class="card streak-card">
+          <div style="font-size:.7rem; color:rgba(226,232,240,.7);" id="streakStatusPill">Current streak</div>
+          <div class="streak-number" id="streakNumber">0</div>
+          <div style="font-size:.7rem; color:var(--muted);">Miss 2 days in a row → reset</div>
+          <div style="margin-top:1rem; display:flex; gap:.5rem;">
+            <select id="workoutType" style="flex:1;">
+              <option value="calisthenics">Calisthenics</option>
+              <option value="weightlifting">Weightlifting</option>
+              <option value="cardio">Cardio</option>
+            </select>
+            <button id="logWorkoutBtn">+ Log today</button>
+          </div>
+        </div>
+        <div class="card" style="min-width:240px; flex:1;">
+          <h3 style="margin-top:0;">Weekly weight</h3>
+          <div style="display:flex; gap:.5rem;">
+            <input id="weightInput" type="number" step="0.1" placeholder="kg" />
+            <button id="saveWeightBtn">Save</button>
+          </div>
+          <div id="weightHistory" style="margin-top:.5rem; font-size:.7rem; color:var(--muted);"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="margin:0;">This month</h3>
+          <div id="monthLabel" style="color:var(--muted); font-size:.75rem;"></div>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <p style="color:var(--muted); font-size:.65rem; margin-top:.5rem;">🧍 calisthenics · 🏋️ weightlifting · 🏃 cardio</p>
+      </div>
+    </div>
+
+    <div id="leaderboardTab" style="display:none;">
+      <div class="card">
+        <h3 style="margin-top:0;">Leaderboard (shared)</h3>
+        <p style="color:var(--muted); font-size:.7rem;">Everyone who logged in will appear here.</p>
+        <table>
+          <thead>
+            <tr>
+              <th align="left">User</th>
+              <th align="left">Streak</th>
+              <th align="left">Last workout</th>
+              <th align="left">Workouts</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // === CONFIG: PUT YOURS HERE ===
+  const SUPABASE_URL = "https://dyvvpqtiuazngysrilhl.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5dnZwcXRpdWF6bmd5c3JpbGhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNzA5ODgsImV4cCI6MjA3Nzk0Njk4OH0.vTXJtbyC0sG2Uk6rFyJjqHXyXkQtBh-bYf0TxIDwUbE";
+  const TABLE = "workouts_users";
+
+  // simple fetch wrapper
+  async function sb(path, method="GET", body=null) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      method,
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": method === "POST" || method === "PATCH" ? "return=representation" : undefined
+      },
+      body: body ? JSON.stringify(body) : null
+    });
+    if (!res.ok) {
+      console.error(await res.text());
+      throw new Error("Supabase error");
+    }
+    return res.json();
+  }
+
+  const authScreen = document.getElementById("authScreen");
+  const appScreen = document.getElementById("appScreen");
+  const loginBtn = document.getElementById("loginBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const authMsg = document.getElementById("authMsg");
+  const badgeName = document.getElementById("badgeName");
+
+  let currentUser = null;
+  let currentUserData = null;
+
+  function todayISO() {
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    return d.toISOString().slice(0,10);
+  }
+
+  function dateDiffInDays(d1, d2) {
+    const a = new Date(d1);
+    const b = new Date(d2);
+    a.setHours(0,0,0,0);
+    b.setHours(0,0,0,0);
+    return Math.round((b - a)/(1000*60*60*24));
+  }
+
+  loginBtn.addEventListener("click", async () => {
+    const uname = document.getElementById("username").value.trim();
+    const pwd = document.getElementById("password").value.trim();
+    if (!uname || !pwd) {
+      authMsg.textContent = "Enter both.";
+      return;
+    }
+    authMsg.textContent = "Loading...";
+
+    // 1. try to fetch user
+    const existing = await sb(`${TABLE}?username=eq.${encodeURIComponent(uname)}`);
+    if (existing.length === 0) {
+      // create
+      const newUser = {
+        username: uname,
+        password: pwd,
+        streak: 0,
+        last_workout_date: null,
+        workouts: [],
+        weight_log: []
+      };
+      const created = await sb(TABLE, "POST", newUser);
+      currentUserData = created[0];
+    } else {
+      const user = existing[0];
+      if (user.password !== pwd) {
+        authMsg.textContent = "Wrong password.";
+        return;
+      }
+      currentUserData = user;
+    }
+    currentUser = uname;
+    badgeName.textContent = currentUser;
+    authScreen.classList.remove("active");
+    appScreen.classList.add("active");
+    renderAll();
+  });
+
+  logoutBtn.addEventListener("click", () => {
+    currentUser = null;
+    currentUserData = null;
+    appScreen.classList.remove("active");
+    authScreen.classList.add("active");
+  });
+
+  const streakNumber = document.getElementById("streakNumber");
+  const streakStatusPill = document.getElementById("streakStatusPill");
+  const logWorkoutBtn = document.getElementById("logWorkoutBtn");
+  const workoutTypeSelect = document.getElementById("workoutType");
+  const weightInput = document.getElementById("weightInput");
+  const saveWeightBtn = document.getElementById("saveWeightBtn");
+  const weightHistory = document.getElementById("weightHistory");
+  const calendarGrid = document.getElementById("calendarGrid");
+  const monthLabel = document.getElementById("monthLabel");
+  const leaderboardBody = document.getElementById("leaderboardBody");
+
+  logWorkoutBtn.addEventListener("click", async () => {
+    if (!currentUserData) return;
+    const type = workoutTypeSelect.value;
+    const today = todayISO();
+    const workouts = Array.isArray(currentUserData.workouts) ? currentUserData.workouts : [];
+    // check if there's already one for today
+    const existingIdx = workouts.findIndex(w => w.date === today);
+    if (existingIdx >= 0) {
+      workouts[existingIdx] = { date: today, type };
+    } else {
+      workouts.push({ date: today, type });
+    }
+
+    // streak logic
+    let newStreak = currentUserData.streak || 0;
+    const lastDate = currentUserData.last_workout_date;
+    if (!lastDate) {
+      newStreak = 1;
+    } else {
+      const gap = dateDiffInDays(lastDate, today);
+      if (gap === 0) {
+        // same day, keep streak
+      } else if (gap === 1) {
+        newStreak += 1;
+      } else if (gap >= 2) {
+        newStreak = 1;
+      }
+    }
+    const patch = {
+      workouts,
+      streak: newStreak,
+      last_workout_date: today
+    };
+    const updated = await sb(`${TABLE}?username=eq.${encodeURIComponent(currentUser)}`, "PATCH", patch);
+    currentUserData = updated[0];
+    renderAll();
+  });
+
+  saveWeightBtn.addEventListener("click", async () => {
+    if (!currentUserData) return;
+    const w = parseFloat(weightInput.value);
+    if (isNaN(w)) return;
+    const logs = Array.isArray(currentUserData.weight_log) ? currentUserData.weight_log : [];
+    logs.unshift({ date: todayISO(), weight: w });
+    const patch = { weight_log: logs.slice(0,7) };
+    const updated = await sb(`${TABLE}?username=eq.${encodeURIComponent(currentUser)}`, "PATCH", patch);
+    currentUserData = updated[0];
+    weightInput.value = "";
+    renderWeight();
+  });
+
+  function renderDashboard() {
+    const u = currentUserData;
+    streakNumber.textContent = u.streak || 0;
+    streakStatusPill.textContent = u.last_workout_date ? "Last workout: " + u.last_workout_date : "No workouts yet";
+    renderWeight();
+    renderCalendar();
+  }
+
+  function renderWeight() {
+    const u = currentUserData;
+    const logs = Array.isArray(u.weight_log) ? u.weight_log : [];
+    if (!logs.length) {
+      weightHistory.textContent = "No weights logged.";
+      return;
+    }
+    weightHistory.innerHTML = logs.map(l => `${l.date}: <strong>${l.weight} kg</strong>`).join("<br>");
+  }
+
+  function renderCalendar() {
+    const u = currentUserData;
+    const workouts = Array.isArray(u.workouts) ? u.workouts : [];
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month+1, 0);
+    const startWeekday = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    monthLabel.textContent = monthNames[month] + " " + year;
+    calendarGrid.innerHTML = "";
+    for (let i=0;i<startWeekday;i++){
+      const div = document.createElement("div");
+      calendarGrid.appendChild(div);
+    }
+    for (let d=1; d<=daysInMonth; d++){
+      const dateStr = new Date(year, month, d).toISOString().slice(0,10);
+      const dayDiv = document.createElement("div");
+      dayDiv.className = "cal-day";
+      if (dateStr === todayISO()) dayDiv.classList.add("today");
+      const label = document.createElement("div");
+      label.textContent = d;
+      label.style.fontWeight = "600";
+      dayDiv.appendChild(label);
+      const workout = workouts.find(w => w.date === dateStr);
+      if (workout) {
+        const icon = document.createElement("div");
+        icon.className = "workout-icon";
+        icon.textContent = workout.type === "calisthenics" ? "🧍" : workout.type === "weightlifting" ? "🏋️" : "🏃";
+        dayDiv.appendChild(icon);
+      }
+      calendarGrid.appendChild(dayDiv);
+    }
+  }
+
+  async function renderLeaderboard() {
+    const all = await sb(`${TABLE}?select=*`);
+    leaderboardBody.innerHTML = "";
+    all.sort((a,b) => (b.streak||0) - (a.streak||0));
+    all.forEach(u => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${u.username}</td>
+        <td>${u.streak || 0}</td>
+        <td>${u.last_workout_date || "—"}</td>
+        <td>${Array.isArray(u.workouts) ? u.workouts.length : 0}</td>
+      `;
+      leaderboardBody.appendChild(tr);
+    });
+  }
+
+  function renderAll() {
+    renderDashboard();
+    renderLeaderboard();
+  }
+
+  // tabs
+  document.querySelectorAll(".nav-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const tab = btn.dataset.tab;
+      document.getElementById("dashboardTab").style.display = tab === "dashboard" ? "" : "none";
+      document.getElementById("leaderboardTab").style.display = tab === "leaderboard" ? "" : "none";
+      if (tab === "leaderboard") renderLeaderboard();
+    });
+  });
+</script>
+</body>
+</html>
